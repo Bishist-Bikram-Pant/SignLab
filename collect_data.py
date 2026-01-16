@@ -10,27 +10,56 @@ WORKFLOW:
 5. Records hand position + movements
 6. Saves to dataset/{sign_name}/{sample_num}.npy
 """
-import cv2
-import numpy as np
-import os
-import mediapipe as mp
-from mediapipe.tasks.python import vision
-from mediapipe.tasks.python.vision import HandLandmarker, HandLandmarkerOptions
-from mediapipe.tasks.python.core import base_options
+import cv2 #OpenCV, handles webcam capture, image processing, and drawing.
+import numpy as np #For numerical operations, storing hand/face coordinates, saving sequences as .npy.
+import os #File handling, creating directories, resolving paths.
+import mediapipe as mp #For hand/face landmark detection.
+from mediapipe.tasks.python import vision 
+from mediapipe.tasks.python.vision import HandLandmarker, HandLandmarkerOptions #Mediapipe’s hand tracking module.
+from mediapipe.tasks.python.core import base_options #Base configuration for Mediapipe models (path, confidence thresholds, etc.).
 
-from realtime.feature_extractor import StreamingFeatureExtractor, USE_FACE
-from sign_vocab import sign_to_idx
+from realtime.feature_extractor import StreamingFeatureExtractor, USE_FACE #Custom module, extracts hand/face features.
+from sign_vocab import sign_to_idx #Dictionary mapping sign names → numeric labels.
+
+# & "c:\Users\bishi\SignLanguage\SignLab\SignLab\Scripts\python.exe" "c:\Users\bishi\SignLanguage\SignLab\SignLab\setup_models.py" & "c:\Users\bishi\SignLanguage\SignLab\SignLab\Scripts\python.exe" "c:\Users\bishi\SignLanguage\SignLab\SignLab\setup_models.py"print(dir(mp))
+
+# Resolve model paths relative to repository root (prevents CWD issues when running from subfolders)
+
+def _resolve_model_path(filename):
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..")) 
+    #os.path.abspath converts a relative path into an absolute path.
+    #An absolute path is the full path starting from the root of the file system.
+    #A relative path is interpreted based on the current working directory.
+    
+    candidates = [
+        os.path.join(repo_root, filename),
+        os.path.join(repo_root, "mediapipe", filename),
+        os.path.abspath(filename),
+        os.path.join(os.getcwd(), filename),
+        os.path.join(os.getcwd(), "mediapipe", filename),
+    ]
+    #os.path.join returns file path 
+
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+        #since c is an item that consists of file path returned by os.path.join, the if statement checks if that particular file path exists for all c in candidates
+    return filename
+# the above function returns either the first file path found or the filename
 
 # Config
-DATASET_DIR = "dataset"
-SEQUENCE_LENGTH = 45
+DATASET_DIR = "dataset" #directory where .npy files are stored 
+SEQUENCE_LENGTH = 45 #it stores the number of frames per sample 
 SAMPLES_PER_SIGN = 50  # Change this to collect more/fewer samples
-os.makedirs(DATASET_DIR, exist_ok=True)
+os.makedirs(DATASET_DIR, exist_ok=True) #Creates dataset folder if it doesn’t exist, avoids errors if already present.
 
 # Initialize MediaPipe landmarkers
+# Resolve model paths robustly so this script works regardless of current working directory
+model_path = _resolve_model_path("hand_landmarker.task")
+
 options = HandLandmarkerOptions(
     base_options=base_options.BaseOptions(
-        model_asset_path="mediapipe/hand_landmarker.task"
+        model_asset_path=model_path
     ),
     num_hands=2,
     min_hand_detection_confidence=0.5
@@ -42,9 +71,10 @@ face_landmarker = None
 if USE_FACE:
     from mediapipe.tasks.python.vision import FaceLandmarker, FaceLandmarkerOptions
     try:
+        face_model = _resolve_model_path("face_landmarker.task")
         face_options = FaceLandmarkerOptions(
             base_options=base_options.BaseOptions(
-                model_asset_path="mediapipe/face_landmarker.task"
+                model_asset_path=face_model
             ),
             num_faces=1,
             min_face_detection_confidence=0.5
@@ -55,9 +85,26 @@ if USE_FACE:
         print(f"⚠️  Face detection disabled: {e}")
         print("   Run: python setup_models.py\n")
 
-mp_drawing = mp.solutions.drawing_utils
-mp_hands = mp.solutions.hands
-mp_face_mesh = mp.solutions.face_mesh
+# mediapipe "solutions" module may not be present in the Tasks-only install.
+# Define minimal drawing/connectivity constants for compatibility.
+HAND_CONNECTIONS = [
+    (0,1),(1,2),(2,3),(3,4),
+    (0,5),(5,6),(6,7),(7,8),
+    (5,9),(9,10),(10,11),(11,12),
+    (9,13),(13,14),(14,15),(15,16),
+    (13,17),(17,18),(18,19),(19,20),
+    (0,17)
+]
+
+mp_drawing = None
+class _MPHands:
+    HAND_CONNECTIONS = HAND_CONNECTIONS
+
+class _MPFaceMesh:
+    FACEMESH_FACE_OVAL = []  # leave empty if not available
+
+mp_hands = _MPHands()
+mp_face_mesh = _MPFaceMesh()
 
 extractor = StreamingFeatureExtractor()
 

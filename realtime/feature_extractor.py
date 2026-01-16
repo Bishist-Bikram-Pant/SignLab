@@ -4,7 +4,27 @@ from mediapipe.tasks.python.vision import HandLandmarker, HandLandmarkerOptions
 from mediapipe.tasks.python.vision import FaceLandmarker, FaceLandmarkerOptions
 from mediapipe.tasks.python import core
 import numpy as np
+import os
 from itertools import combinations
+
+
+def _resolve_model_path(filename):
+    """Return an existing path for model file by checking common locations.
+    Checks project root, mediapipe/ under project root, current working dir, and absolute path.
+    Falls back to the provided filename so MediaPipe can attempt to resolve it.
+    """
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    candidates = [
+        os.path.join(repo_root, filename),
+        os.path.join(repo_root, "mediapipe", filename),
+        os.path.join(os.getcwd(), filename),
+        os.path.join(os.getcwd(), "mediapipe", filename),
+        os.path.abspath(filename),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return filename
 
 NUM_HAND_LANDMARKS = 21
 FEATURES_PER_LM = 3
@@ -109,11 +129,13 @@ class StreamingFeatureExtractor:
     def extract(self, rgb_frame):
         from mediapipe.tasks.python.core import base_options
         if self.hand_landmarker is None:
-            options = HandLandmarkerOptions(base_options=base_options.BaseOptions(model_asset_path="mediapipe/hand_landmarker.task"), num_hands=self.num_hands, min_hand_detection_confidence=0.5)
+            hand_model = _resolve_model_path("hand_landmarker.task")
+            options = HandLandmarkerOptions(base_options=base_options.BaseOptions(model_asset_path=hand_model), num_hands=self.num_hands, min_hand_detection_confidence=0.5)
             self.hand_landmarker = HandLandmarker.create_from_options(options)
         if USE_FACE and self.face_landmarker is None:
             try:
-                face_options = FaceLandmarkerOptions(base_options=base_options.BaseOptions(model_asset_path="mediapipe/face_landmarker.task"), num_faces=1, min_face_detection_confidence=0.5)
+                face_model = _resolve_model_path("face_landmarker.task")
+                face_options = FaceLandmarkerOptions(base_options=base_options.BaseOptions(model_asset_path=face_model), num_faces=1, min_face_detection_confidence=0.5)
                 self.face_landmarker = FaceLandmarker.create_from_options(face_options)
             except:
                 pass

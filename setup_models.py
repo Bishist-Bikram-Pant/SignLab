@@ -27,12 +27,37 @@ else:
         print(f"   Save it to: {FACE_MODEL_PATH}")
 
 # Check hand model
-HAND_MODEL_PATH = "mediapipe/hand_landmarker.task"
-if os.path.exists(HAND_MODEL_PATH):
-    print(f"✓ Hand landmarker model exists: {HAND_MODEL_PATH}")
+HAND_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+# Prefer to place the hand model inside the mediapipe/ directory so other modules can find it.
+HAND_MODEL_DEST = os.path.join("mediapipe", "hand_landmarker.task")
+HAND_MODEL_LOCAL = os.path.abspath("hand_landmarker.task")
+
+if os.path.exists(HAND_MODEL_DEST):
+    print(f"✓ Hand landmarker model exists: {HAND_MODEL_DEST}")
 else:
-    print(f"⚠️  Hand landmarker model not found: {HAND_MODEL_PATH}")
-    print(f"   Make sure you have the hand model file!")
+    # If user already downloaded the model to the project root, copy it into mediapipe/
+    if os.path.exists(HAND_MODEL_LOCAL):
+        print(f"Copying existing hand model from {HAND_MODEL_LOCAL} to {HAND_MODEL_DEST}")
+        try:
+            import shutil
+            shutil.copy(HAND_MODEL_LOCAL, HAND_MODEL_DEST)
+            size_mb = os.path.getsize(HAND_MODEL_DEST) / (1024 * 1024)
+            print(f"✓ Copied successfully ({size_mb:.1f} MB)")
+        except Exception as e:
+            print(f"❌ Copy failed: {e}")
+            print(f"   Please move the model manually to: {HAND_MODEL_DEST}")
+    else:
+        print(f"📥 Downloading hand landmarker model...")
+        print(f"   URL: {HAND_MODEL_URL}")
+        print(f"   Destination: {HAND_MODEL_DEST}")
+        try:
+            urllib.request.urlretrieve(HAND_MODEL_URL, HAND_MODEL_DEST)
+            size_mb = os.path.getsize(HAND_MODEL_DEST) / (1024 * 1024)
+            print(f"✓ Downloaded successfully ({size_mb:.1f} MB)")
+        except Exception as e:
+            print(f"❌ Download failed: {e}")
+            print(f"   Please download manually from: {HAND_MODEL_URL}")
+            print(f"   Save it to: {HAND_MODEL_DEST}")
 
 print("\n" + "="*60)
 print("Setup complete! You can now:")

@@ -168,6 +168,10 @@ def train():
     
     print(f"  Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     
+    # Ensure the parent directory for MODEL_PATH exists so torch.save won't fail
+    model_dir = os.path.dirname(MODEL_PATH) or "."
+    os.makedirs(model_dir, exist_ok=True)
+
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
     
