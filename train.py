@@ -1,6 +1,10 @@
 """
 Train the sign language recognition model using PyTorch.
 
+This version supports both:
+1. Local datasets (from live collection or Kaggle)
+2. Kaggle datasets (automatic download and processing)
+
 TRAINING WORKFLOW:
 1. Loads all .npy files from dataset/{sign_name}/ folders
 2. Splits data into 80% training, 20% testing
@@ -9,10 +13,24 @@ TRAINING WORKFLOW:
 5. Keeps best model (lowest test loss)
 6. Saves to models/sign_model.pth
 
-HOW TO USE:
-  python train.py
+HOW TO USE WITH KAGGLE DATASETS:
   
-WHAT YOU SEE:
+  Option 1: Automatic Kaggle download
+    python prepare_kaggle_data.py --dataset asl-alphabet
+    python train.py
+  
+  Option 2: Manual local dataset
+    (Place .npy files in dataset/{sign_name}/)
+    python train.py
+
+KAGGLE DATASET OPTIONS:
+  - asl-alphabet: American Sign Language alphabet (26 letters)
+    python prepare_kaggle_data.py --dataset asl-alphabet
+  
+  - sign-mnist: Sign Language MNIST dataset
+    python prepare_kaggle_data.py --dataset sign-mnist
+
+TRAINING OUTPUT:
   - Epoch number and training progress
   - Train Loss: how well model fits training data
   - Test Loss: how well model generalizes
@@ -20,8 +38,11 @@ WHAT YOU SEE:
   - ✓ Best model saved = better checkpoint found
 
 IF YOU GET "NO DATA FOUND":
-  → Run: python collect_data.py
-  → Collect at least a few samples first
+  Option A: Use Kaggle datasets
+    python prepare_kaggle_data.py --dataset asl-alphabet
+  
+  Option B: Collect data manually
+    python collect_data.py
 
 CONFIGS TO TWEAK:
   - BATCH_SIZE: higher = faster but needs more memory

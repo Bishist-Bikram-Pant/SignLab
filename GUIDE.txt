@@ -1,21 +1,52 @@
-#!/usr/bin/env python3
-"""
-COMPLETE SIGN LANGUAGE TRAINING & RECOGNITION GUIDE
-
-Step-by-step workflow:
-"""
-
-print("""
 ╔══════════════════════════════════════════════════════════════════════════╗
-║          SIGN LANGUAGE RECOGNITION - COMPLETE WORKFLOW                  ║
+║          SIGN LANGUAGE RECOGNITION - COMPLETE WORKFLOW (v2.0)            ║
+║                    Now with Kaggle Dataset Support!                       ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
-🎯 THREE SIMPLE STEPS:
+🎯 THREE EASY STEPS:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-STEP 1: COLLECT TRAINING DATA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1: GET TRAINING DATA
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You have TWO options:
+
+OPTION A: USE KAGGLE DATASETS (Recommended) ⭐
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Why Kaggle? Free, large, diverse datasets. No manual collection needed!
+
+  Step 1a: Install Kaggle CLI
+    pip install kaggle
+
+  Step 1b: Get Kaggle API Key
+    1. Go to: https://www.kaggle.com/settings/account
+    2. Click "Create New API Token"
+    3. This downloads kaggle.json
+    4. Create ~/.kaggle/ folder (home directory)
+    5. Move kaggle.json there
+    6. On Linux/Mac: chmod 600 ~/.kaggle/kaggle.json
+
+  Step 1c: Download and Process Dataset
+    
+    For ASL Alphabet (26 English letters):
+      python prepare_kaggle_data.py --dataset asl-alphabet
+    
+    For Sign Language MNIST (faster, already processed):
+      python prepare_kaggle_data.py --dataset sign-mnist
+    
+    Both create dataset/ folder with organized .npy files
+
+  Step 1d: (Optional) Check what was downloaded
+    ls dataset/
+    # You'll see folders like: asl_a/, asl_b/, asl_c/, etc.
+
+
+OPTION B: MANUAL COLLECTION (Old Method)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Only if you want to collect your own data!
 
   Command:
     python collect_data.py
@@ -25,26 +56,17 @@ STEP 1: COLLECT TRAINING DATA
     • Displays YOUR hand landmarks in real-time (green skeleton)
     • You perform the sign
     • Press SPACE to record 45 frames
-    • Press ESC to skip a sign
+    • Press ESC to skip to next sign
     • Repeats until 50 samples per sign collected
-
-  How to customize WHICH SIGNS:
-    Edit collect_data.py, line ~127:
-    
-      SIGNS = [
-          "hello",
-          "thank_you",
-          "yes",
-          "no",
-          ...
-      ]
-    
-    Just edit the list to add/remove signs!
 
   Tips:
     • Good lighting helps hand detection
     • Move your hands clearly but not too fast
     • Different people, angles, speeds = better model
+    • Can take 30-60 minutes to collect all signs
+
+  Customize which signs to collect:
+    Edit collect_data.py, look for SIGNS list around line 200
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -55,112 +77,156 @@ STEP 2: TRAIN THE MODEL
     python train.py
 
   What happens:
-    • Loads all your collected .npy files
+    • Loads all your .npy files
     • Splits: 80% training, 20% testing
     • Trains a bidirectional GRU neural network
     • Shows progress each epoch:
       - Loss: how well model fits data
       - Accuracy: % correct predictions
-      - ✓ Best! = better model found, saves it
-    • Takes ~5-10 minutes on GPU/MPS
+      - ✓ Best! = better checkpoint found, saves it
+    • Takes 5-10 minutes on GPU/MPS, 30+ on CPU
 
-  How it works:
+  How the training works:
     1. Your hand landmark sequences go into the model
     2. Model learns patterns specific to each sign
     3. Tests on unseen data (20%)
     4. Keeps the best version (lowest test loss)
 
-  Customize training:
-    Edit train.py, top of file:
+  Customize training settings:
+    Edit train.py, find the CONFIG section:
       BATCH_SIZE = 32    (higher = faster, needs more RAM)
-      EPOCHS = 50        (more = longer training, better model)
+      EPOCHS = 50        (more = longer, better accuracy)
       LEARNING_RATE = 0.001  (lower = more stable)
+
+  Expected output looks like:
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    🎯 Training...
+    Epoch  1/50 | Loss: 2.4890 | Val: 2.3921 | Acc: 15.0%
+    Epoch  2/50 | Loss: 2.1234 | Val: 2.0891 | Acc: 22.5%
+    Epoch  3/50 | Loss: 1.8234 | Val: 1.7234 | Acc: 35.8% ✓ Best!
+    ...
+    Epoch 50/50 | Loss: 0.1234 | Val: 0.5891 | Acc: 95.2%
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 STEP 3: RUN REAL-TIME RECOGNITION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Command:
-    python -m realtime.realtime_inference
-
-  Or use:
+  Command (after training):
     python run.py
+
+  Or:
+    python -m realtime.realtime_inference
 
   What happens:
     • Activates your webcam
-    • Shows live hand landmarks
+    • Shows live hand landmarks (green skeleton)
     • Every 45 frames, predicts the sign
     • Uses text-to-speech to say the sign name
     • Press ESC to quit
 
-  How it works:
-    1. MediaPipe detects your hands (green skeleton)
-    2. Extracts hand features (positions, distances, angles, motion)
-    3. Buffers 45 frames
-    4. Feeds to trained model
-    5. Model predicts which sign you're making
-    6. If confident enough, speaks it out loud
+  Tips:
+    • Position hands clearly in frame
+    • Good lighting helps
+    • The system buffers 45 frames before predicting
+    • Each prediction takes ~100ms
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📁 FOLDER STRUCTURE (AUTO-CREATED):
+TROUBLESHOOTING
+━━━━━━━━━━━━━━━━
 
-  dataset/
-    ├── hello/
-    │   ├── 0.npy (50 samples)
-    │   ├── 1.npy
-    │   └── ...
-    ├── thank_you/
-    ├── yes/
-    └── ... (one folder per sign)
+Problem: "No data found"
+  Solution: Run prepare_kaggle_data.py or collect_data.py first
 
-  models/
-    └── sign_model.pth (your trained model)
+Problem: "Kaggle API not found"
+  Solution: pip install kaggle, then set up API key
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Problem: "Webcam not detected"
+  Solution: Check camera permissions, try different device index
 
-🔧 TROUBLESHOOTING:
+Problem: "Out of memory"
+  Solution: Reduce BATCH_SIZE in train.py (change 32 to 16 or 8)
 
-  "No data found" when training?
-    → Run collect_data.py first!
-
-  Hand landmarks not showing?
-    → Check lighting
-    → Make sure hand is visible in frame
-    → Move closer to camera
-
-  Poor recognition accuracy?
-    → Collect more samples (increase SAMPLES_PER_SIGN)
-    → Train for more epochs
-    → Be more consistent with your signs
-
-  Model not saving?
-    → Check models/ folder exists and is writable
+Problem: "Model accuracy is very low"
+  Solution: 
+    - Use more training data (collect more samples)
+    - Train for more epochs (increase EPOCHS)
+    - Lower LEARNING_RATE for more stable training
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💡 TIPS FOR BEST RESULTS:
+PROJECT STRUCTURE
+━━━━━━━━━━━━━━━━
 
-  1. Consistent signing
-     → Use same hand position for each sign
-     → Same speed each time
-     → Clear hand shapes
-
-  2. Vary conditions
-     → Different lighting
-     → Different distances from camera
-     → Different hand positions
-     → This makes model more robust!
-
-  3. More data = better model
-     → 50 samples is minimum
-     → 100+ samples much better
-     → Different people = even better
+SignLab/
+  ├── prepare_kaggle_data.py    ← Download Kaggle datasets
+  ├── kaggle_dataset_loader.py  ← Kaggle download/processing logic
+  ├── collect_data.py           ← Manual data collection (old method)
+  ├── train.py                  ← Train the model
+  ├── run.py                    ← Run real-time recognition
+  ├── dataset/                  ← Your training data goes here
+  │   ├── asl_a/
+  │   ├── asl_b/
+  │   └── ...
+  ├── models/
+  │   └── sign_model.pth        ← Trained model (created by train.py)
+  └── realtime/                 ← Real-time inference code
+      ├── realtime_inference.py
+      ├── model.py
+      ├── feature_extractor.py
+      └── buffer.py
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Ready? Start with:
-  python collect_data.py
+QUICK START (Copy-Paste)
+━━━━━━━━━━━━━━━━━━━━━━━
 
-""")
+# 1. Install Kaggle
+pip install kaggle
+
+# 2. Set up Kaggle API key (visit https://www.kaggle.com/settings/account)
+#    Create ~/.kaggle/kaggle.json with your API credentials
+
+# 3. Download and prepare ASL Alphabet dataset
+python prepare_kaggle_data.py --dataset asl-alphabet
+
+# 4. Train the model
+python train.py
+
+# 5. Run real-time recognition
+python run.py
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+AVAILABLE KAGGLE DATASETS
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ASL Alphabet (asl-alphabet)
+   URL: https://www.kaggle.com/datasets/grassknoted/asl-alphabet
+   Size: ~7000 images
+   Classes: 26 letters (A-Z)
+   Command: python prepare_kaggle_data.py --dataset asl-alphabet
+
+2. Sign Language MNIST (sign-mnist)
+   URL: https://www.kaggle.com/datasets/datamunge/sign-language-mnist
+   Size: ~27,000 samples
+   Classes: 24 signs (without J, Z which require motion)
+   Command: python prepare_kaggle_data.py --dataset sign-mnist
+
+Want to add more datasets?
+  Edit kaggle_dataset_loader.py and add a new process_* method!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NEED HELP?
+━━━━━━━━━
+
+Check these files for detailed documentation:
+  - prepare_kaggle_data.py    - Dataset download help
+  - train.py                  - Training details
+  - collect_data.py           - Manual collection help
+  - realtime_inference.py     - Real-time recognition details
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
