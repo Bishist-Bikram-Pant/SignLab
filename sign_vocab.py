@@ -27,8 +27,11 @@ idx_to_sign = {
     9: "help",
     10: "want",
     11: "food",
-    12: "drink"
-    
+    12: "drink",
+    13: "asl_a",
+    14: "asl_b",
+    15: "asl_c",
+    16: "asl_d"
 }
 
 sign_to_idx = {v: k for k, v in idx_to_sign.items()}
