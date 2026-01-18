@@ -3,7 +3,6 @@ import time
 import numpy as np
 import os
 import torch
-import pyttsx3
 
 from realtime.feature_extractor import StreamingFeatureExtractor
 from realtime.buffer import FeatureBuffer
@@ -22,35 +21,8 @@ if not os.path.exists(MODEL_PATH):
             MODEL_PATH = candidate
             break
 SEQUENCE_LENGTH = 45
-SPEAK_COOLDOWN = 1.0  # seconds
+DISPLAY_COOLDOWN = 1.0  # seconds between updates
 # --------------------------------------- #
-
-# ---------------- TTS ---------------- #
-# Initialize lazily to avoid pyttsx3 driver destructor issues on interpreter shutdown.
-tts = None
-TTS_AVAILABLE = False
-
-def speak(text):
-    global tts, TTS_AVAILABLE
-    if not TTS_AVAILABLE:
-        try:
-            tts = pyttsx3.init()
-            tts.setProperty("rate", 160)
-            TTS_AVAILABLE = True
-        except Exception:
-            tts = None
-            TTS_AVAILABLE = False
-            return
-
-    if tts is None:
-        return
-
-    try:
-        tts.say(text)
-        tts.runAndWait()
-    except Exception:
-        # Don't let TTS errors crash the app
-        pass
 
 # ---------------- MODEL ---------------- #
 def load_model(feature_dim):
@@ -92,8 +64,10 @@ def main():
         return
 
     cap = None
-    last_spoken = ""
-    last_speak_time = 0
+    last_displayed = ""
+    last_display_time = 0
+    recognized_word = ""
+    confidence = 0.0
 
     try:
         cap = cv2.VideoCapture(0)
@@ -119,16 +93,33 @@ def main():
                     logits = model(x)        # (1, T, C)
                     probs = torch.softmax(logits, dim=-1)
                     preds = torch.argmax(probs, dim=-1).squeeze(0).cpu().numpy()
+                    
+                    # Calculate confidence (average max probability)
+                    max_probs = torch.max(probs, dim=-1)[0].squeeze(0).cpu().numpy()
+                    confidence = float(np.mean(max_probs))
 
                 decoded = greedy_ctc_decode(preds, blank=BLANK_IDX)
                 text = " ".join(idx_to_sign[i] for i in decoded)
 
                 now = time.time()
-                if text and text != last_spoken and now - last_speak_time > SPEAK_COOLDOWN:
-                    print("[SIGN]:", text)
-                    speak(text)
-                    last_spoken = text
-                    last_speak_time = now
+                if text and text != last_displayed and now - last_display_time > DISPLAY_COOLDOWN:
+                    print(f"[SIGN]: {text} (Confidence: {confidence*100:.1f}%)")
+                    last_displayed = text
+                    last_display_time = now
+                    recognized_word = text
+
+            # Display recognized word and confidence on frame
+            if recognized_word:
+                # Create semi-transparent overlay for better text visibility
+                overlay = frame.copy()
+                cv2.rectangle(overlay, (10, 10), (400, 80), (0, 0, 0), -1)
+                cv2.addWeighted(overlay, 0.6, frame, 0.4, 0, frame)
+                
+                # Display word and confidence
+                cv2.putText(frame, f"Sign: {recognized_word.upper()}", 
+                           (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                cv2.putText(frame, f"Confidence: {confidence*100:.1f}%", 
+                           (20, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
             cv2.imshow("Sign Recognition", frame)
             if cv2.waitKey(1) & 0xFF == 27:
@@ -142,10 +133,6 @@ def main():
             pass
         try:
             cv2.destroyAllWindows()
-        except Exception:
-            pass
-        try:
-            tts.stop()
         except Exception:
             pass
 
