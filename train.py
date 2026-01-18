@@ -63,7 +63,7 @@ DATASET_DIR = "dataset"
 MODEL_PATH = "models/sign_model.pth"
 SEQUENCE_LENGTH = 45
 BATCH_SIZE = 32
-EPOCHS = 50
+EPOCHS = 100  # Increased for better training
 LEARNING_RATE = 0.001
 DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
 
