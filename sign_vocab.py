@@ -1,31 +1,29 @@
-# sign_vocab.py
-import json
+"""
+Sign vocabulary for ASL recognition
+Auto-generated from WLASL dataset
+"""
 
-# ASL words for this project - expanded to 10 words
-SIGNS = [
-    "hello", "goodbye", "thanks", "please", "yes", 
-    "no", "sorry", "help", "love", "friend"
-]
+# All signs in the vocabulary (excluding blank token)
+SIGNS = ['book', 'drink', 'computer', 'before', 'chair', 'go', 'clothes', 'who', 'candy', 'cousin', 'deaf', 'walk', 'yes', 'thin', 'help', 'year', 'fine', 'no', 'what', 'now', 'many', 'hot', 'woman', 'cool', 'thanksgiving', 'like', 'black', 'finish', 'table', 'mother']
 
+# Blank token index
 BLANK_IDX = 0
 
-# Updated vocabulary for word recognition (10 common ASL words)
-idx_to_sign = {
-    0: "<blank>",
-    1: "hello",
-    2: "goodbye",
-    3: "thanks",
-    4: "please",
-    5: "yes",
-    6: "no",
-    7: "sorry",
-    8: "help",
-    9: "love",
-    10: "friend"
-}
+# Mapping from sign name to index
+sign_to_idx = {"<blank>": 0}
+for idx, sign in enumerate(SIGNS, start=1):
+    sign_to_idx[sign] = idx
 
-sign_to_idx = {v: k for k, v in idx_to_sign.items()}
+# Reverse mapping from index to sign name
+idx_to_sign = {idx: sign for sign, idx in sign_to_idx.items()}
 
-# Save for reference
-with open("sign_vocab.json", "w") as f:
-    json.dump({"sign_to_idx": sign_to_idx, "idx_to_sign": idx_to_sign}, f)
+# Number of classes (including blank)
+NUM_CLASSES = len(sign_to_idx)
+
+def get_sign_name(idx):
+    """Get sign name from index"""
+    return idx_to_sign.get(idx, "<unknown>")
+
+def get_sign_idx(name):
+    """Get index from sign name"""
+    return sign_to_idx.get(name, 0)
