@@ -1,10 +1,10 @@
 """
 Sign vocabulary for ASL recognition
-Auto-generated from WLASL dataset
+Auto-generated from ASL Alphabet dataset - ALL LETTERS
 """
 
 # All signs in the vocabulary (excluding blank token)
-SIGNS = ['book', 'drink', 'computer', 'before', 'chair', 'go', 'clothes', 'who', 'candy', 'cousin', 'deaf', 'walk', 'yes', 'thin', 'help', 'year', 'fine', 'no', 'what', 'now', 'many', 'hot', 'woman', 'cool', 'thanksgiving', 'like', 'black', 'finish', 'table', 'mother']
+SIGNS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
 
 # Blank token index
 BLANK_IDX = 0

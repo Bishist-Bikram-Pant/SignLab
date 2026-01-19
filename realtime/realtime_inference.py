@@ -11,7 +11,14 @@ from realtime.model import SignRecognitionModel
 from sign_vocab import idx_to_sign, BLANK_IDX
 
 # ---------------- CONFIG ---------------- #
-DEVICE = "mps" if torch.backends.mps.is_available() else ("cuda" if torch.cuda.is_available() else "cpu")
+# GPU Detection and Configuration
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+elif torch.backends.mps.is_available():
+    DEVICE = "mps"
+else:
+    DEVICE = "cpu"
+
 MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models", "sign_model.pth"))
 # If running from a subpackage folder, the models file might be in a parent workspace directory.
 if not os.path.exists(MODEL_PATH):

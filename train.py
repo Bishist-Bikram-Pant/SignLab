@@ -63,11 +63,24 @@ DATASET_DIR = "dataset"
 MODEL_PATH = "models/sign_model.pth"
 SEQUENCE_LENGTH = 45
 BATCH_SIZE = 32
-EPOCHS = 100  # Increased for better training
+EPOCHS = 35  # Optimized for 28k+ samples (1000+ per class)
 LEARNING_RATE = 0.001
-DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
+EARLY_STOPPING_PATIENCE = 8  # Stop if no improvement for 8 epochs
 
-print(f"\n📱 Using device: {DEVICE}\n")
+# GPU Detection and Configuration
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+    print(f"\n🚀 GPU detected: {torch.cuda.get_device_name(0)}")
+    print(f"   CUDA version: {torch.version.cuda}")
+    print(f"   Available memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+elif torch.backends.mps.is_available():
+    DEVICE = "mps"  # For Mac with Apple Silicon
+    print(f"\n🍎 Using Apple Metal Performance Shaders (MPS)")
+else:
+    DEVICE = "cpu"
+    print(f"\n⚠️  No GPU detected, using CPU (training will be slower)")
+
+print(f"   Training device: {DEVICE}\n")
 
 class SignDataset(torch.utils.data.Dataset):
     """Loads all .npy files from dataset/ folder and pads/truncates to fixed length"""
@@ -197,9 +210,13 @@ def train():
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
     
     best_loss = float('inf')
+    patience_counter = 0
     
     print()
     print("🎯 Training...")
+    print(f"   Epochs: {EPOCHS} (with early stopping after {EARLY_STOPPING_PATIENCE} epochs without improvement)")
+    print(f"   Dataset: ~{len(dataset):,} samples across {len(sign_to_idx)-1} classes")
+    print(f"   Estimated time: ~{EPOCHS * 2:.0f}-{EPOCHS * 3:.0f} minutes on CPU")
     print("-" * 70)
     
     # Training loop
@@ -269,12 +286,20 @@ def train():
               f"Val: {test_loss:.4f} | "
               f"Acc: {accuracy:5.1f}%{status}")
         
-        # Save best model
+        scheduler.step()
+        
+        # Save best model and check early stopping
         if test_loss < best_loss:
             best_loss = test_loss
+            patience_counter = 0
             torch.save(model.state_dict(), MODEL_PATH)
-        
-        scheduler.step()
+        else:
+            patience_counter += 1
+            if patience_counter >= EARLY_STOPPING_PATIENCE:
+                print(f"\n⏹️  Early stopping triggered after {epoch + 1} epochs")
+                print(f"   No improvement for {EARLY_STOPPING_PATIENCE} consecutive epochs")
+                print(f"   Best test loss: {best_loss:.4f}")
+                break
     
     print("-" * 70)
     print()
