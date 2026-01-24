@@ -90,6 +90,10 @@ class SignDataset(torch.utils.data.Dataset):
         self.sign_names = []
         self.target_length = target_length
         
+        # Create feature extractor once (not for every sample!)
+        from realtime.feature_extractor import StreamingFeatureExtractor
+        expected_feature_dim = StreamingFeatureExtractor().total_feature_dim
+        
         for sign, idx in sign_to_idx.items():
             if sign == "<blank>":
                 continue
@@ -103,30 +107,35 @@ class SignDataset(torch.utils.data.Dataset):
             files = [f for f in os.listdir(sign_dir) if f.endswith('.npy')]
             for file in files:
                 path = os.path.join(sign_dir, file)
-                seq = np.load(path)
-                
-                # Ensure consistent feature dimension
-                from realtime.feature_extractor import StreamingFeatureExtractor
-                expected_feature_dim = StreamingFeatureExtractor().total_feature_dim
-                
-                if seq.shape[1] < expected_feature_dim:
-                    padding = np.zeros((seq.shape[0], expected_feature_dim - seq.shape[1]))
-                    seq = np.hstack([seq, padding])
-                elif seq.shape[1] > expected_feature_dim:
-                    seq = seq[:, :expected_feature_dim]
-                
-                # Pad or truncate to target length
-                if len(seq) < target_length:
-                    # Pad with zeros
-                    padding = np.zeros((target_length - len(seq), seq.shape[1]))
-                    seq = np.vstack([seq, padding])
-                elif len(seq) > target_length:
-                    # Truncate
-                    seq = seq[:target_length]
-                
-                self.sequences.append(seq)
-                self.labels.append(idx)
-                self.sign_names.append(sign)
+                try:
+                    seq = np.load(path)
+                    
+                    # Convert to float32 to save memory
+                    seq = seq.astype(np.float32)
+                    
+                    # Ensure consistent feature dimension
+                    
+                    if seq.shape[1] < expected_feature_dim:
+                        padding = np.zeros((seq.shape[0], expected_feature_dim - seq.shape[1]), dtype=np.float32)
+                        seq = np.hstack([seq, padding])
+                    elif seq.shape[1] > expected_feature_dim:
+                        seq = seq[:, :expected_feature_dim]
+                    
+                    # Pad or truncate to target length
+                    if len(seq) < target_length:
+                        # Pad with zeros
+                        padding = np.zeros((target_length - len(seq), seq.shape[1]), dtype=np.float32)
+                        seq = np.vstack([seq, padding])
+                    elif len(seq) > target_length:
+                        # Truncate
+                        seq = seq[:target_length]
+                    
+                    self.sequences.append(seq)
+                    self.labels.append(idx)
+                    self.sign_names.append(sign)
+                except Exception as e:
+                    print(f"  ⚠️ Error loading {path}: {e}")
+                    continue
         
         print(f"✓ Loaded {len(self.sequences)} sequences from {dataset_dir}/")
         
@@ -151,7 +160,45 @@ class SignDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         seq = torch.tensor(self.sequences[idx], dtype=torch.float32)
         label = torch.tensor(self.labels[idx], dtype=torch.long)
+        
+        # Data augmentation during training (randomly applied)
+        if np.random.random() < 0.5:  # 50% chance
+            seq = self.augment_sequence(seq)
+        
         return seq, label
+    
+    def augment_sequence(self, seq):
+        """Apply random augmentations to improve model generalization"""
+        augmented = seq.clone()
+        
+        # 1. Add random noise (simulate camera/sensor noise)
+        if np.random.random() < 0.3:
+            noise = torch.randn_like(augmented) * 0.02
+            augmented = augmented + noise
+        
+        # 2. Random scaling (simulate different hand sizes/distances)
+        if np.random.random() < 0.3:
+            scale = np.random.uniform(0.9, 1.1)
+            augmented = augmented * scale
+        
+        # 3. Random time shift (simulate different signing speeds)
+        if np.random.random() < 0.3:
+            shift = np.random.randint(-3, 4)
+            if shift > 0:
+                augmented = torch.cat([augmented[shift:], augmented[-1:].repeat(shift, 1)])
+            elif shift < 0:
+                augmented = torch.cat([augmented[0:1].repeat(-shift, 1), augmented[:shift]])
+        
+        # 4. Random dropout of frames (simulate occlusion)
+        if np.random.random() < 0.2:
+            num_dropout = np.random.randint(1, 5)
+            dropout_indices = np.random.choice(len(augmented), num_dropout, replace=False)
+            # Replace with interpolation from neighbors
+            for i in dropout_indices:
+                if i > 0 and i < len(augmented) - 1:
+                    augmented[i] = (augmented[i-1] + augmented[i+1]) / 2
+        
+        return augmented
 
 def train():
     print("="*70)
@@ -197,7 +244,8 @@ def train():
         input_dim=feature_dim,
         hidden_dim=256,
         output_dim=output_dim,
-        num_layers=2
+        num_layers=2,
+        dropout=0.4  # Increased dropout for better generalization
     ).to(DEVICE)
     
     print(f"  Model parameters: {sum(p.numel() for p in model.parameters()):,}")
@@ -206,7 +254,8 @@ def train():
     model_dir = os.path.dirname(MODEL_PATH) or "."
     os.makedirs(model_dir, exist_ok=True)
 
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    # Optimizer with weight decay for regularization
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
     
     best_loss = float('inf')
@@ -239,7 +288,8 @@ def train():
             logits_flat = logits.reshape(-1, logits.shape[-1])  # (B*T, C)
             labels_repeated = labels.unsqueeze(1).expand(-1, logits.shape[1]).reshape(-1)  # (B*T,)
             
-            loss = nn.CrossEntropyLoss()(logits_flat, labels_repeated)
+            # Use label smoothing for better generalization (reduces overconfidence)
+            loss = nn.CrossEntropyLoss(label_smoothing=0.1)(logits_flat, labels_repeated)
             
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
