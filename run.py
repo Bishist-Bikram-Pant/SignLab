@@ -6,17 +6,24 @@ import subprocess
 import sys
 
 def main():
-    print("=" * 60)
-    print("  Real-Time Sign Language Interpreter")
-    print("=" * 60)
+    from sign_vocab import SIGNS
+    
+    print("=" * 70)
+    print("  Real-Time Sign Language Recognition - WLASL Dataset")
+    print("=" * 70)
     print()
     print("Controls:")
     print("  - ESC: Quit")
     print()
-    print("Signs recognized: hello, thank_you, yes, no, please,")
-    print("                  sorry, i, you, help")
+    print(f"Signs recognized ({len(SIGNS)} words):")
+    
+    # Display signs in rows of 5
+    for i in range(0, len(SIGNS), 5):
+        row = SIGNS[i:i+5]
+        print("  " + ", ".join(row))
+    
     print()
-    print("=" * 60)
+    print("=" * 70)
     print()
     
     try:
